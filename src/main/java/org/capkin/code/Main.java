@@ -23,5 +23,6 @@ public class Main {
         TableInfoParseSqlFactory tableInfoParseSqlFactory = tableInfoParseFactory.getTableInfoParseSqlFactory();
         ITableInfoParseDatabase tableInfoParse = tableInfoParseSqlFactory.getTableInfoParse(TableInfoParseSqlFactory.MYSQL);
         List<TableInfo> tableInfo = tableInfoParse.getTableInfo(sql);
+        // 根据tableInfo的内容填充模板，存在多种模板
     }
 }

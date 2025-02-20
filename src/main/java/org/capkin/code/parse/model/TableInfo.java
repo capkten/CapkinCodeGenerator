@@ -10,6 +10,8 @@ public class TableInfo {
 
     private List<ForeignKeyProperty> foreignKeyPropertyList;
 
+    String tableCodeName;
+
     public List<ColumnProperty> getColumns() {
         return columns;
     }
@@ -34,12 +36,23 @@ public class TableInfo {
         this.foreignKeyPropertyList = foreignKeyPropertyList;
     }
 
+
+    public String getTableCodeName() {
+        return tableCodeName;
+    }
+
+    public void setTableCodeName(String tableCodeName) {
+        this.tableCodeName = tableCodeName;
+    }
+
+
     @Override
     public String toString() {
         return "TableInfo{" +
                 "columns=" + columns +
                 ", tableName='" + tableName + '\'' +
                 ", foreignKeyPropertyList=" + foreignKeyPropertyList +
+                ", tableCodeName='" + tableCodeName + '\'' +
                 '}';
     }
 }

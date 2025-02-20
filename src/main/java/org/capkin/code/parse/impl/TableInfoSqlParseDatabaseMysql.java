@@ -4,16 +4,21 @@ import cn.hutool.core.util.StrUtil;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.create.table.ColumnDefinition;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
+import net.sf.jsqlparser.statement.create.table.ForeignKeyIndex;
 import net.sf.jsqlparser.statement.create.table.Index;
 import org.capkin.code.parse.ITableInfoParseDatabase;
 import org.capkin.code.parse.model.ColumnProperty;
+import org.capkin.code.parse.model.ForeignKeyProperty;
 import org.capkin.code.parse.model.TableInfo;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class TableInfoSqlParseDatabaseMysql implements ITableInfoParseDatabase {
 
@@ -26,16 +31,76 @@ public class TableInfoSqlParseDatabaseMysql implements ITableInfoParseDatabase {
      */
     @Override
     public List<TableInfo> getTableInfo(String sql) {
-        // 首先提取所有的create table语句
         try {
+            // 首先提取所有的create table语句
             List<String> createTablesSql = getCreateTables(sql);
             log.info("createTablesSql: " + createTablesSql);
+            // 解析所有的create table语句
             List<TableInfo> tableInfoList = parseCreateTable(createTablesSql);
             log.info("parse result tableInfoList:" + tableInfoList);
+            // 提取所有的更新语句，从而处理外键
+            List<String> alterSql = getAlterSql(sql);
+            log.info("alterSql: " + alterSql);
+            // 解析所有的更新表语句
+            tableInfoList = parseAlterTable(alterSql, tableInfoList);
+            log.info("tableInfoList result: " + tableInfoList);
+            return tableInfoList;
         } catch (JSQLParserException e) {
             throw new RuntimeException(e);
         }
-        return List.of();
+    }
+
+    private List<TableInfo> parseAlterTable(List<String> alterSqlList, List<TableInfo> tableInfoList) {
+        for (String alterSql : alterSqlList) {
+            try {
+                alterSql = alterSql.replaceAll("on update restrict", "")
+                        .replaceAll("on delete cascade", "")
+                        .replaceAll("ON UPDATE RESTRICT", "")
+                        .replaceAll("ON DELETE CASCADE", "")
+                        .replaceAll("ON DELETE RESTRICT", "")
+                        .replaceAll("on delete restrict", "");
+                Alter alter = (Alter) CCJSqlParserUtil.parse(alterSql);
+                String patternString = "\\bALTER\\s+TABLE\\s+\\w+\\s+ADD\\s+CONSTRAINT\\s+\\w+\\s+FOREIGN\\s+KEY\\s*\\(\\s*(\\w+)\\s*\\)\\s+REFERENCES\\s+(\\w+)\\s*\\(\\s*(\\w+)\\s*\\)";                Pattern pattern = Pattern.compile(patternString, Pattern.CASE_INSENSITIVE);
+                Matcher matcher = pattern.matcher(alterSql);
+                if (matcher.find()) {
+                    String fkColumn = matcher.group(1);  // cp_id
+                    String refTable = matcher.group(2);  // comments_posts
+                    String refColumn = matcher.group(3); // id
+                    for (TableInfo tableInfo : tableInfoList) {
+                        if (tableInfo.getTableCodeName().equals(alter.getTable().getName())) {
+                            log.info("alterSql: " + alterSql);
+                            if (tableInfo.getForeignKeyPropertyList() == null) {
+                                tableInfo.setForeignKeyPropertyList(new ArrayList<>());
+                            }
+                            ForeignKeyProperty foreignKeyProperty = new ForeignKeyProperty();
+                            foreignKeyProperty.setForeignTable(refTable);
+                            foreignKeyProperty.setThisColumn(fkColumn);
+                            foreignKeyProperty.setForeignColumn(refColumn);
+                            tableInfo.getForeignKeyPropertyList().add(foreignKeyProperty);
+                        }
+                    }
+                } else {
+                    System.out.println("未匹配到外键信息");
+                }
+            } catch (JSQLParserException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return tableInfoList;
+    }
+
+    private List<String> getAlterSql(String sql) {
+        List<String> alterSql = new ArrayList<>();
+        String[] split = sql.split(";");
+        for (String s : split) {
+            String upperCase = s.toUpperCase();
+            int updateStart = upperCase.indexOf("ALTER TABLE");
+            if (updateStart != -1) {
+                String updateSqlStr = s.substring(updateStart);
+                alterSql.add(updateSqlStr);
+            }
+        }
+        return alterSql;
     }
 
     private List<String> getCreateTables(String sql) throws JSQLParserException {
@@ -61,7 +126,12 @@ public class TableInfoSqlParseDatabaseMysql implements ITableInfoParseDatabase {
                 Table table = parse.getTable();
                 TableInfo tableInfo = new TableInfo();
                 tableInfoList.add(tableInfo);
-                tableInfo.setTableName(table.getName());
+                tableInfo.setTableCodeName(table.getName());
+                String tableName = StrUtil.toCamelCase(table.getName());
+                if (!tableName.isEmpty()) {
+                    tableName = Character.toUpperCase(tableName.charAt(0)) + tableName.substring(1);
+                }
+                tableInfo.setTableName(tableName);
                 List<ColumnProperty> columnPropertyList = new ArrayList<>();
                 tableInfo.setColumns(columnPropertyList);
                 List<ColumnDefinition> columnDefinitions = parse.getColumnDefinitions();
@@ -98,6 +168,16 @@ public class TableInfoSqlParseDatabaseMysql implements ITableInfoParseDatabase {
                                 columnProperty.setPrimaryKey(true);
                             }
                         }
+                    }else if (index instanceof ForeignKeyIndex) {
+                        ForeignKeyIndex foreignKeyIndex = (ForeignKeyIndex) index;
+                        if (tableInfo.getForeignKeyPropertyList() == null) {
+                            tableInfo.setForeignKeyPropertyList(new ArrayList<>());
+                        }
+                        ForeignKeyProperty foreignKeyProperty = new ForeignKeyProperty();
+                        foreignKeyProperty.setForeignTable(foreignKeyIndex.getTable().getName());
+                        foreignKeyProperty.setThisColumn(foreignKeyIndex.getColumns().getFirst().getColumnName());
+                        foreignKeyProperty.setForeignColumn(foreignKeyIndex.getReferencedColumnNames().getFirst());
+                        tableInfo.getForeignKeyPropertyList().add(foreignKeyProperty);
                     }
                 }
             } catch (JSQLParserException e) {
@@ -106,7 +186,4 @@ public class TableInfoSqlParseDatabaseMysql implements ITableInfoParseDatabase {
         }
         return tableInfoList;
     }
-
-
-
 }
