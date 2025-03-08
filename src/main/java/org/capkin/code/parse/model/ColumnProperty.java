@@ -12,6 +12,8 @@ public class ColumnProperty {
 
     private String propertyType;
 
+    private String propertyCodeType;
+
     private String defaultValue;
 
     private String columComment;
@@ -72,6 +74,14 @@ public class ColumnProperty {
         this.columComment = columComment;
     }
 
+    public String getPropertyCodeType() {
+        return propertyCodeType;
+    }
+
+    public void setPropertyCodeType(String propertyCodeType) {
+        this.propertyCodeType = propertyCodeType;
+    }
+
     @Override
     public String toString() {
         return "ColumnProperty{" +
@@ -80,6 +90,7 @@ public class ColumnProperty {
                 ", isNullable=" + isNullable +
                 ", codeName='" + codeName + '\'' +
                 ", propertyType='" + propertyType + '\'' +
+                ", propertyCodeType='" + propertyCodeType + '\'' +
                 ", defaultValue='" + defaultValue + '\'' +
                 ", columComment='" + columComment + '\'' +
                 '}';

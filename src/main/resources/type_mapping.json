@@ -1,0 +1,36 @@
+{
+  "typeMappings": {
+    "mysql": {
+      "baseTypes": {
+        "TINYINT": "Integer",
+        "SMALLINT": "Integer",
+        "MEDIUMINT": "Integer",
+        "INT": "Integer",
+        "BIGINT": "Long",
+        "FLOAT": "Float",
+        "DOUBLE": "Double",
+        "DECIMAL": "BigDecimal",
+        "CHAR": "String",
+        "VARCHAR": "String",
+        "TEXT": "String",
+        "BLOB": "byte[]",
+        "DATE": "LocalDate",
+        "TIME": "LocalTime",
+        "DATETIME": "LocalDateTime",
+        "TIMESTAMP": "LocalDateTime",
+        "YEAR": "Integer"
+      },
+      "specialCases": {
+        "TINYINT(1)": "Boolean",
+        "DECIMAL\\(\\d+,\\d+\\)": "BigDecimal"
+      }
+    },
+    "oracle": {
+      "baseTypes": {
+        "NUMBER": "BigDecimal",
+        "VARCHAR2": "String",
+        "DATE": "LocalDateTime"
+      }
+    }
+  }
+}
